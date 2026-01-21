@@ -1,0 +1,562 @@
+# WindowsMetric — MVP Documentation (v1)
+
+**Secure Phone-Approved Windows Unlock (Explicit Intent, Offline, Local BLE)**
+
+## 0) Quick Summary
+
+**WindowsMetric** is a secure, offline-first Windows unlocking system where a **nearby Android phone** acts as a trusted companion authenticator.
+
+Unlike proximity-based unlock systems, WindowsMetric **never unlocks automatically**. Every unlock requires:
+
+1. explicit intent (tap notification on phone)
+2. strong authentication (biometric or app password)
+3. a signed short-lived token delivered over encrypted BLE
+
+If anything fails, **Windows PIN/password always works** (no lockout possible).
+
+---
+
+## 1) Product / Project Idea
+
+### Problem
+
+Traditional Windows unlock methods (PIN/password):
+
+* can be observed (shoulder surfing)
+* are inconvenient (daily repetitive entry)
+* are risky in shared spaces (hostel/classroom)
+
+Existing auto-unlock solutions (Bluetooth proximity):
+
+* unlock unintentionally
+* allow unlock without explicit intent
+* are unsafe in shared environments
+
+### Solution
+
+WindowsMetric provides an explicit approval-based unlock:
+
+> “Your PC is nearby — Tap to unlock”
+> → biometric auth on phone
+> → signed one-time token
+> → Windows unlock triggers
+
+### Key Promise
+
+**Presence is not permission**
+**Explicit approval required**
+**Local-only / Offline**
+**Windows is always fallback root-of-trust**
+
+---
+
+## 2) MVP Scope
+
+### Included (MVP v1)
+
+* Windows 11 support
+* Android app support
+* BLE local discovery + communication
+* QR-based device pairing
+* Biometric approval + app password fallback
+* One-time signed unlock token
+* Windows unlock action: **PIN injection**
+* Local-first (no cloud / no internet)
+
+### Excluded (Post MVP)
+
+* Credential Provider (v2)
+* iOS support
+* Cloud sync / multi-device sync
+* Remote unlock over internet
+* enterprise management policies
+
+---
+
+## 3) Design Goals
+
+### Primary Goals
+
+* Unlock PC using phone **only after explicit approval**
+* Avoid observable secrets on laptop during daily usage
+* Stay compatible with Windows login (PIN/password always works)
+* Secure pairing + trusted device list
+* Clean and familiar UX
+
+### Non-Goals
+
+* Defeating a compromised Windows OS
+* Protecting against nation-state relay attacks in MVP
+* Replacing Windows authentication stack in MVP
+
+---
+
+## 4) Tech Stack
+
+## 4.1 Windows (Windows 11)
+
+**Language:** C++17 / C++20
+**Build System:** CMake + Visual Studio Build Tools
+**BLE:** Windows Bluetooth LE APIs (WinRT / Windows.Devices.Bluetooth)
+**Crypto:** Windows CNG + libsodium (preferred for Ed25519)
+**Secure Secret Storage:** DPAPI (CryptProtectData / CryptUnprotectData)
+**Service:** Windows Service (LocalSystem)
+**Logs:** file-based logs + Windows Event Log integration (optional in MVP)
+**Installer (MVP):** simple EXE or MSIX later
+
+## 4.2 Android
+
+**Language:** Kotlin
+**UI:** Jetpack Compose
+**Biometric Auth:** BiometricPrompt API
+**BLE:** BluetoothLeScanner + GATT client APIs
+**Crypto:** Android Keystore + Ed25519 keys
+**Local DB:** Room (or encrypted SharedPreferences for MVP)
+**Distribution:** APK / GitHub releases (Play Store/F-Droid later)
+
+---
+
+## 5) High-Level Architecture
+
+```
++-------------------------+                 +-----------------------+
+| Android (WindowsMetric) |  BLE (GATT)     | WindowsMetric Service |
+|-------------------------| <-------------> |-----------------------|
+| - BLE Scanner           |                 | - BLE Advertiser      |
+| - Notification UI       |                 | - GATT Server         |
+| - Biometrics            |                 | - Crypto Verify       |
+| - Token Sign            |                 | - PIN Injection       |
+| - Keystore Keys         |                 | - Trusted Devices DB  |
++-------------------------+                 +-----------------------+
+```
+
+### Security Boundary
+
+* Phone stores private keys in **Android Keystore**
+* PC stores trusted phone public keys + encrypted PIN (DPAPI) 
+* Token always signed + short TTL
+* Communication local BLE, encrypted at BLE layer + app-level verification
+
+---
+
+## 6) Directory Structure (Professional Repo Layout)
+
+```
+WindowsMetric/
+├── README.md
+├── LICENSE
+├── docs/
+│   ├── architecture.md
+│   ├── protocol-v1.md
+│   ├── threat-model.md
+│   ├── setup-dev.md
+│   ├── release-process.md
+│   └── anyhthing else required
+├── shared/
+│   ├── protocol/
+│   └── constants/
+├── windows/
+│   ├── service/
+│   │   ├── include/
+│   │   │   ├── ble/
+│   │   │   ├── crypto/
+│   │   │   ├── storage/
+│   │   │   ├── unlock/
+│   │   │   └── core/
+│   │   ├── src/
+│   │   │   ├── main.cpp
+│   │   │   ├── service_main.cpp
+│   │   │   ├── ble/
+│   │   │   ├── crypto/
+│   │   │   ├── storage/
+│   │   │   ├── unlock/
+│   │   │   └── core/
+│   │   └── assets/
+│   │       └── qrcode.html (or qrcode generator helper)
+│   ├── tools/
+│   │   ├── pairing-cli/
+│   │   └── test-client/
+│   └── installer/
+│       ├── install.ps1
+│       └── uninstall.ps1
+└── android/
+    └── app/
+        ├── build.gradle.kts
+        └── src/main/
+            ├── java/.../
+            │   ├── ble/
+            │   ├── crypto/
+            │   ├── data/
+            │   ├── ui/
+            │   └── core/
+            └── AndroidManifest.xml
+```
+
+---
+
+## 7) User Flows
+
+## 7.1 Pairing Flow (QR Based)
+
+### Goal:
+
+Bind phone <-> PC securely without cloud.
+
+### Steps:
+
+1. User opens WindowsMetric on PC (tray app or CLI)
+2. PC generates pairing payload:
+
+   * `pc_id`
+   * `pc_public_key`
+   * `pairing_nonce`
+   * `expires_at`
+3. PC shows **QR code**
+4. Phone scans QR
+5. Phone generates its own keypair in Keystore:
+
+   * `phone_public_key`
+   * (private key never leaves Keystore)
+6. Phone sends **PAIR_REQ** to PC via BLE
+7. PC verifies pairing nonce + time window
+8. PC stores phone public key as trusted device
+9. PC sends PAIR_OK back
+
+---
+
+## 7.2 Unlock Flow (Explicit Approval)
+
+### Steps:
+
+1. Phone sees PC nearby
+2. Phone shows notification:
+
+   * “WindowsMetric: PC nearby — Tap to unlock”
+3. User taps notification
+4. Phone asks biometric
+
+   * biometric success → proceed
+   * fail → ask app password (fallback)
+5. Phone constructs unlock token:
+
+   * `pc_id`, `phone_id`, `timestamp`, `ttl`, `nonce`
+6. Phone signs token using private key
+7. Sends unlock packet via BLE
+8. PC verifies signature + TTL + nonce replay cache
+9. PC executes unlock action:
+
+   * inject PIN + Enter
+10. PC logs result + sends status back
+
+---
+
+## 8) BLE Service Design (GATT)
+
+### Custom BLE Service UUID
+
+Example:
+
+* `SERVICE_UUID = 7D2B0A90-7D2B-4F7C-9E44-0F10A8D04A01`
+
+### Characteristics
+
+* `PAIR_REQ_CHAR`  (Write)
+* `PAIR_RESP_CHAR` (Notify)
+* `UNLOCK_REQ_CHAR` (Write)
+* `STATUS_CHAR`    (Notify)
+* `INFO_CHAR`      (Read)
+
+### Rate limiting
+
+* Status notify max once per ~2 seconds
+* Unlock requests max 3 per minute (prevent spam)
+
+---
+
+## 9) Protocol v1 (Message Types)
+
+All messages are **CBOR** (recommended) or JSON (debug-mode).
+
+### PAIR_REQ
+
+```
+{
+  type: "PAIR_REQ",
+  pc_id: "...",
+  pairing_nonce: "...",
+  phone_id: "...",
+  phone_public_key: "...",
+  ts: 1700000000
+}
+```
+
+### PAIR_OK
+
+```
+{
+  type: "PAIR_OK",
+  pc_id: "...",
+  phone_id: "...",
+  trusted: true
+}
+```
+
+### UNLOCK_REQ
+
+```
+{
+  type: "UNLOCK_REQ",
+  pc_id: "...",
+  phone_id: "...",
+  ts: 1700000000,
+  ttl: 10,
+  nonce: "...",
+  intent: "unlock",
+  signature: "..."
+}
+```
+
+### STATUS
+
+```
+{
+  type: "STATUS",
+  code: "OK" | "DENIED" | "EXPIRED" | "UNTRUSTED" | "ERROR",
+  message: "..."
+}
+```
+
+---
+
+## 10) Security Model
+
+## 10.1 Threats Addressed
+
+Shoulder surfing / observation attacks
+Accidental unlock (no auto unlock)
+Replay attacks (nonce + ttl + cache)
+Untrusted phone trying to unlock
+Spam attempts (rate limiting)
+
+## 10.2 Out of Scope (MVP)
+
+* fully compromised Windows OS
+* stolen phone already unlocked
+* advanced BLE relay attacks
+
+## 10.3 Cryptographic Rules
+
+* Use **Ed25519**
+* Phone stores private key in Keystore (non-exportable)
+* Token must include:
+
+  * `pc_id`, `phone_id`
+  * `ts`, `ttl`
+  * `nonce`
+  * `intent="unlock"`
+
+Verification requires:
+
+* phone public key must match trusted list
+* signature valid
+* token not expired
+* nonce unused
+
+---
+
+## 11) Storage & Secrets
+
+## Windows Storage
+
+* Trusted devices DB:
+
+  * `phone_id`
+  * `phone_public_key`
+  * `paired_at`, `last_seen`
+* PC private key: stored locally (optional)
+* Windows PIN for injection:
+
+  * encrypted using **DPAPI**
+  * never transmitted
+
+## Android Storage
+
+* Keys: Keystore
+* Paired PCs list:
+
+  * `pc_id`
+  * `pc_public_key`
+  * display name
+* App password (hashed + salted)
+
+---
+
+## 12) Features (MVP Checklist)
+
+### Windows (MVP v1)
+
+* [x] Background service
+* [x] BLE advertise + GATT server
+* [x] QR pairing support
+* [x] Trusted device verification
+* [x] Unlock request verification
+* [x] PIN injection
+* [x] Logging
+
+### Android (MVP v1)
+
+* [x] BLE scan + connect
+* [x] notification UX
+* [x] biometric auth
+* [x] fallback app password
+* [x] sign token
+* [x] manage trusted PCs
+
+---
+
+## 13) Implementation Plan (Engineering Tasks)
+
+## Phase 0 — Repo + Spec (Day 1–2)
+
+* Create repo structure
+* Write protocol v1 + UUIDs + error codes
+* Setup CI workflow skeleton
+
+## Phase 1 — BLE Connectivity (Day 3–6)
+
+Windows:
+
+* implement BLE advertise
+* implement GATT server
+  Android:
+* scan & detect PC
+* connect & write to characteristic
+
+Deliverable: Android can send “PING”, Windows logs.
+
+## Phase 2 — Pairing (Day 7–12)
+
+Windows:
+
+* generate QR payload + QR rendering
+* pairing nonce + expiry validation
+* store phone pubkey
+  Android:
+* QR scanner + parse
+* create keystore keypair
+* send PAIR_REQ
+* show pairing result
+
+Deliverable: trusted pairing works.
+
+## Phase 3 — Token Auth (Day 13–18)
+
+Android:
+
+* generate UNLOCK_REQ + Ed25519 sign
+  Windows:
+* verify signature
+* TTL + nonce replay cache
+* send status notify
+
+Deliverable: secure unlock token works.
+
+## Phase 4 — Unlock Action (Day 19–25)
+
+Windows:
+
+* lock state detection
+* secure PIN fetch (DPAPI)
+* input injection + Enter
+* harden edge cases
+
+Deliverable: real unlock.
+
+## Phase 5 — Packaging + Release (Day 26–30)
+
+* tray UI minimal
+* proper logs + diagnostics export
+* release build scripts
+* GitHub release v1.0.0
+
+---
+
+## 14) Unlock Implementation (PIN Injection Module)
+
+### Why needed
+
+In MVP (no Credential Provider), WindowsMetric must trigger unlock without modifying Windows authentication stack.
+
+### Approach
+
+* WindowsMetric service triggers synthetic input:
+
+  * focus lock screen
+  * type digits quickly
+  * press Enter
+
+### Safety
+
+* PIN stored locally encrypted with DPAPI
+* Only executed after verified unlock token
+* Rate limit attempts (anti brute)
+
+### Known limitation
+
+* PIN injection depends on lock screen input behavior
+* Credential Provider will replace this in v2
+
+---
+
+## 15) Diagnostics & Logging (Professional)
+
+Windows log entries should include:
+
+* BLE state changes
+* device discovery
+* pairing attempts
+* unlock request verification results
+* failure reasons
+* timestamps
+
+Android logs:
+
+* detected PC
+* user tap intent
+* auth success/failure
+* token sent
+* status received
+
+---
+
+## 16) Release Plan (Product Delivery)
+
+### v1.0.0 (MVP Release)
+
+* Supports 1 paired phone
+* Supports 1 PC
+* Stable unlock flow
+
+### v1.1.0
+
+* Multi-PC pairing support
+* improved tray app
+
+### v2.0.0 (Major)
+
+* Replace PIN injection with **Credential Provider**
+* Windows 10 support
+* optional policy configs
+
+---
+
+## 17) Future Enhancements (Post MVP)
+
+* Motion confirmation (tilt / double tap)
+* Guest mode / time-limited unlock permissions
+* Auto-deny in specific networks/locations
+* unlock approval requires phone locked state check
+* encrypted pairing DB
+* optional server mode for multiple devices
+
+---

@@ -1,0 +1,117 @@
+# WindowsMetric - Project Guide
+
+This guide is designed to help you get started with the WindowsMetric project, from setting up your environment to understanding the core technologies. It will evolve as the project advances.
+
+## 1. Complete Tech Stack
+
+### Windows (PC Side)
+- **OS Target**: Windows 11 (Primary), Windows 10 (Secondary support).
+- **Language**: C++20 (Modern C++ features are utilized).
+- **Build System**: CMake (Cross-platform standard, fully supported in VS).
+- **IDE**: Visual Studio 2022.
+- **APIs**: 
+  - **WinRT C++/WinRT**: For Bluetooth Low Energy (BLE) connectivity.
+  - **Windows CNG**: For native cryptography constants.
+  - **DPAPI**: For secure local storage of PINs/Secrets.
+  - **Libsodium** (Static Link): For Ed25519 signatures (easier and safer than raw CNG for this specific curve).
+
+### Android (Mobile Side)
+- **OS Target**: Android 8.0 (Oreo, API 26) and above.
+- **Language**: Kotlin.
+- **UI Framework**: Jetpack Compose (Modern, declarative UI).
+- **IDE**: Android Studio.
+- **APIs**:
+  - **Android Bluetooth LE APIs**: `BluetoothLeScanner`, `BluetoothGatt`.
+  - **Android Keystore System**: For hardware-backed key storage.
+  - **BiometricPrompt API**: For secure user authentication.
+
+---
+
+## 2. Prerequisites
+
+Before starting, ensure you have the following installed on your machine.
+
+### Windows Development
+1.  **Visual Studio 2022** (Community, Professional, or Enterprise).
+    -   **Download**: [visualstudio.microsoft.com](https://visualstudio.microsoft.com/downloads/)
+    -   **Installation Workloads**:
+        -   Select **"Desktop development with C++"**.
+    -   **Important Optional Components** (in the "Individual components" tab or right pane):
+        -   **C++ CMake tools for Windows** (Usually selected by default).
+        -   **Windows 11 SDK** (Latest version).
+        -   **C++/WinRT** (often included, but good to verify).
+
+2.  **Git for Windows** 
+    -   **Download**: [git-scm.com](https://git-scm.com/download/win)
+    -   Required for version control.
+
+### Android Development
+1.  **Android Studio** (Latest Stable Channel).
+    -   **Download**: [developer.android.com/studio](https://developer.android.com/studio)
+    -   **Setup**: Standard installation is usually sufficient.
+2.  **Android SDK**:
+    -   Open Android Studio -> Tools -> SDK Manager.
+    -   Install **Android SDK Platform** for API 34 (or latest).
+    -   Install **Android SDK Command-line Tools**.
+3.  **Physical Android Device**:
+    -   **Why?** The Android Emulator has limited or difficult-to-configure Bluetooth support. Testing BLE is best done on real hardware.
+    -   Enable **Developer Options** and **USB Debugging** on your phone.
+
+---
+
+## 3. Environment Setting Guidance
+
+### Project Root
+We will use `e:\Projects\WindowsMetric` as our root directory.
+
+### Directory Structure Setup
+Create the following folders inside the root `WindowsMetric` folder to separate the two distinct environments:
+
+- `WindowsMetric/`
+  - `windows/`  <-- This will be your Visual Studio CMake workspace.
+  - `android/`  <-- This will be your Android Studio project root.
+  - `shared/`   <-- Documentation and protocol specs shared by both.
+
+### How to Open Projects
+1.  **For Windows Code**:
+    -   Open **Visual Studio 2022**.
+    -   Select **"Open a local folder"**.
+    -   Navigate to `e:\Projects\WindowsMetric\windows`.
+    -   VS will detect the `CMakeLists.txt` (once we create it) and configure the environment automatically.
+
+2.  **For Android Code**:
+    -   Open **Android Studio**.
+    -   Select **"New Project"** (to create) or **"Open"**.
+    -   Navigate to `e:\Projects\WindowsMetric\android`.
+
+---
+
+## 4. Initial Project Flow
+
+Once you have installed the software and created the folders, follow these steps to verify your setup:
+
+### Step 1: Initialize Repository
+Open a terminal in `e:\Projects\WindowsMetric`:
+```powershell
+git init
+echo "# WindowsMetric" > README.md
+```
+
+### Step 2: Verify Windows Build Chain
+1.  Create `windows/CMakeLists.txt` and a simple `windows/src/main.cpp`.
+2.  In `main.cpp`, just print "Hello WindowsMetric".
+3.  Open the `windows` folder in Visual Studio.
+4.  Wait for CMake generation to finish.
+5.  Select `main.cpp` as the startup item (or the build target) and press **F5 (Run)**.
+6.  If you see the console output, your C++ environment is ready.
+
+### Step 3: Verify Android Build Chain
+1.  Open Android Studio.
+2.  Create a **New Project** -> **"Empty Activity"** (Compose).
+3.  Save it to `e:\Projects\WindowsMetric\android`.
+4.  Connect your physical phone via USB.
+5.  Press **Run (Green Play Button)**.
+6.  If the "Hello Android" app appears on your phone, your mobile environment is ready.
+
+### Step 4: Next Steps
+Once both "Hello Worlds" are running, we will proceed to **Phase 0** of the roadmap: defining the BLE protocol and shared constants in the `shared/` folder.

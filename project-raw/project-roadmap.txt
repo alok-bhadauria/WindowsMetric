@@ -1,0 +1,90 @@
+# Project Roadmap: WindowsMetric
+
+## 1. Project Idea
+WindowsMetric is a secure, offline-first system to unlock a Windows PC using a trusted Android phone. 
+It ensures security by requiring explicit approval (tapping a notification) and biometric authentication 
+on the phone before delivering a signed, short-lived unlock token via encrypted BLE to the PC, which then 
+injects the PIN to unlock. It emphasizes that presence is not permission.
+
+## 2. Tech Stack
+
+### Windows (Service)
+- **Language**: C++17 / C++20
+- **Build**: CMake + Visual Studio
+- **Communication**: Windows Bluetooth LE APIs (WinRT)
+- **Cryptography**: Windows CNG + libsodium (Ed25519)
+- **Storage**: DPAPI for secrets (PIN)
+- **Type**: Background Windows Service (LocalSystem)
+
+### Android (App)
+- **Language**: Kotlin
+- **UI**: Jetpack Compose
+- **Communication**: BluetoothLeScanner + GATT Client
+- **Cryptography**: Android Keystore (Ed25519)
+- **Storage**: Room or Encrypted SharedPreferences
+- **Auth**: BiometricPrompt API
+
+## 3. Architecture
+
+### High Level
+[Android Phone] <---> [Encrypted BLE GATT] <---> [WindowsMetric Service]
+The phone acts as the authenticator, signing tokens with keys stored in the Android Keystore. 
+The PC verifies these tokens and manages trust.
+
+### Low Level
+- **BLE Service**: Custom GATT service with characteristics for Pairing, Unlocking, and Status.
+- **Protocol**: Custom simple protocol using CBOR/JSON over BLE.
+- **Security**:
+    - **Keys**: Ed25519 keypairs generated on both devices.
+    - **Token**: Signed payload containing IDs, timestamp, TTL, and nonce to prevent replay attacks.
+    - **Unlock Mechanism**: The Windows service injects the user's PIN securely upon verifying a valid token.
+
+## 4. Project Flow
+
+### Pairing
+1. PC generates and displays a QR code containing its ID and public key.
+2. Android phone scans QR code and generates its own keypair.
+3. Phone sends a Pair Request via BLE.
+4. PC validates and stores the phone's public key as trusted.
+
+### Unlocking
+1. Phone detects PC via BLE advertising.
+2. User receives a notification "PC nearby - Tap to unlock".
+3. User taps and authenticates via Biometrics.
+4. Phone signs a unique unlock token and sends it to PC via BLE.
+5. PC verifies signature, nonce, and TTL.
+6. If valid, PC injects the PIN to unlock the session.
+
+## 5. Directory Structure
+WindowsMetric/
+├── docs/               # Architecture, protocols, threat model
+├── shared/             # Shared protocol definitions and constants
+├── windows/            # Windows implementation
+│   ├── service/        # C++ Service source (BLE, Crypto, Unlock)
+│   ├── tools/          # Testing tools
+│   └── installer/      # Installation scripts
+└── android/            # Android implementation
+    └── app/            # Kotlin source (UI, BLE, Crypto)
+
+--------------------------------------------------------------------------------
+## Summary of Outline and Roadmap
+
+This project, WindowsMetric, aims to create a secure, offline authentication bridge between an Android phone 
+and a Windows PC using Bluetooth Low Energy (BLE). The detailed roadmap outlines a structured development 
+plan starting from repository setup to a v1.0 MVP release.
+
+**Key Highlights:**
+- **Explicit Security:** 
+    The system solves the "unintentional unlock" problem of proximity-based solutions by requiring 
+    explicit user intent (notification tap) and biometric verification on the phone.
+- **Zero-Trust Networking:** 
+    It operates entirely offline without cloud dependencies, using industry-standard Ed25519 cryptography 
+    for mutual authentication and token signing.
+- **Implementation:** 
+    The Windows side runs as a background C++ service handling BLE acting as a peripheral, while the 
+    Android app acts as the central client. The unlock mechanism for the MVP relies on secure PIN injection, 
+    with future plans to upgrade to a custom Credential Provider.
+- **Structured Development:** 
+    The roadmap provides a clear path from establishing BLE connectivity (Phase 1), through secure 
+    Pairing (Phase 2) and Token Auth (Phase 3), to the final Unlock implementation (Phase 4) and 
+    Release (Phase 5).
