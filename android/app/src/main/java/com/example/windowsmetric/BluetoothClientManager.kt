@@ -1,11 +1,14 @@
 package com.example.windowsmetric
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +29,7 @@ enum class AuthState {
 @SuppressLint("MissingPermission")
 class BluetoothClientManager(context: Context) {
     
+    private val context: Context = context
     private val adapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var socket: BluetoothSocket? = null
     
@@ -46,6 +50,10 @@ class BluetoothClientManager(context: Context) {
     }
 
     fun connect(device: BluetoothDevice) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            _statusMessage.value = "Bluetooth permission not granted"
+            return
+        }
         _isConnecting.value = true
         _statusMessage.value = "Connecting to ${device.name}..."
         

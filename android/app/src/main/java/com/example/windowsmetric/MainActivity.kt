@@ -58,6 +58,12 @@ fun BluetoothScreen(btManager: BluetoothClientManager, modifier: Modifier = Modi
     val cpu by btManager.cpuUsage.collectAsState()
     val ram by btManager.ramUsage.collectAsState()
     
+    val hasPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+    } else {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED
+    }
+    
     var sessionPinText by remember { mutableStateOf("") }
     var windowsPinText by remember { mutableStateOf("") }
     
@@ -88,28 +94,32 @@ fun BluetoothScreen(btManager: BluetoothClientManager, modifier: Modifier = Modi
             }
             Spacer(Modifier.height(16.dp))
             
-            Text("Select Paired PC:", style = MaterialTheme.typography.titleMedium)
-            
-            val devices = remember { btManager.getPairedDevices() }
-            LazyColumn {
-                items(devices) { device ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clickable(enabled = !isConnecting && !isConnected) { btManager.connect(device) },
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Text(
-                            text = when {
-                                isConnecting -> "Connecting..."
-                                isConnected -> "Connected"
-                                else -> device.name ?: "Unknown"
-                            },
-                            modifier = Modifier.padding(16.dp)
-                        )
+            if (hasPermissions) {
+                Text("Select Paired PC:", style = MaterialTheme.typography.titleMedium)
+                
+                val devices = remember { btManager.getPairedDevices() }
+                LazyColumn {
+                    items(devices) { device ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable(enabled = !isConnecting && !isConnected) { btManager.connect(device) },
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Text(
+                                text = when {
+                                    isConnecting -> "Connecting..."
+                                    isConnected -> "Connected"
+                                    else -> device.name ?: "Unknown"
+                                },
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
                     }
                 }
+            } else {
+                Text("Grant Bluetooth permissions first", style = MaterialTheme.typography.bodyLarge)
             }
         } else if (authState != AuthState.Authenticated) {
             Text("Enter SESSION PIN from Terminal:", style = MaterialTheme.typography.titleMedium)
