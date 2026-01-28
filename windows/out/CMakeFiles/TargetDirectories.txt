@@ -1,3 +1,0 @@
-E:/Projects/WindowsMetric/windows/out/CMakeFiles/WindowsMetric.dir
-E:/Projects/WindowsMetric/windows/out/CMakeFiles/ALL_BUILD.dir
-E:/Projects/WindowsMetric/windows/out/CMakeFiles/ZERO_CHECK.dir

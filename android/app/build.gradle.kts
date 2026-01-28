@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.windowsmetric"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -53,4 +53,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.biometric:biometric:1.1.0")
 }

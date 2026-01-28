@@ -1,9 +1,0 @@
-MSBuild version 18.0.5+e22287bf1 for .NET Framework
-
-  BleServer.cpp
-E:\Projects\WindowsMetric\windows\src\BleServer.cpp(87,29): error C2039: 'GetRequest': is not a member of 'winrt::Windows::Devices::Bluetooth::GenericAttributeProfile::GattWriteRequestedEventArgs' [E:\Projects\WindowsMetric\windows\out\WindowsMetric.vcxproj]
-      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\cppwinrt\winrt\impl\Windows.Devices.Bluetooth.GenericAttributeProfile.2.h(366,35):
-      see declaration of 'winrt::Windows::Devices::Bluetooth::GenericAttributeProfile::GattWriteRequestedEventArgs'
-  
-E:\Projects\WindowsMetric\windows\src\BleServer.cpp(90,23): error C3536: 'request': cannot be used before it is initialized [E:\Projects\WindowsMetric\windows\out\WindowsMetric.vcxproj]
-E:\Projects\WindowsMetric\windows\src\BleServer.cpp(91,84): error C3536: 'buffer': cannot be used before it is initialized [E:\Projects\WindowsMetric\windows\out\WindowsMetric.vcxproj]
